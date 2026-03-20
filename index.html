@@ -517,15 +517,27 @@
     const key = document.getElementById('setup-key').value.trim();
     const bin = document.getElementById('setup-bin').value.trim();
     const errEl = document.getElementById('setup-error');
+    const btn = document.querySelector('.setup-save-btn');
     if (!key) { errEl.textContent = 'Please paste your API key.'; errEl.style.display = 'block'; return; }
     _apiKey = key; _binId = bin;
     localStorage.setItem('shelf_apikey', key);
-    localStorage.setItem('shelf_binid', bin);
+    if (bin) localStorage.setItem('shelf_binid', bin);
     errEl.style.display = 'none';
-    closeSetup();
-    const ok = await loadFromCloud();
-    if (ok) { render(); } 
-    else if (!bin) { await saveToCloud(); render(); }
+    btn.textContent = 'Connecting...';
+    btn.disabled = true;
+    if (bin) {
+      // existing bin — try to load
+      const ok = await loadFromCloud();
+      if (ok) { closeSetup(); render(); }
+      else { errEl.textContent = 'Could not connect. Check your key and Bin ID.'; errEl.style.display = 'block'; }
+    } else {
+      // no bin yet — do a first save to create one
+      closeSetup();
+      await saveToCloud();
+      render();
+    }
+    btn.textContent = 'Connect';
+    btn.disabled = false;
   }
 
   // ── DATA ──
