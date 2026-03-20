@@ -183,12 +183,41 @@
   .reread-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 12px; user-select: none; }
   .reread-toggle input[type=checkbox] { accent-color: var(--gold); width: 14px; height: 14px; cursor: pointer; }
   .reread-toggle span { font-size: 13px; color: var(--mist); }
-</style>
+
+  /* SYNC UI */
+  .sync-bar { background: #1a1410; border-bottom: 1px solid var(--border); padding: 7px 24px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .sync-status { font-size: 11px; color: var(--mist); font-style: italic; display: flex; align-items: center; gap: 6px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mist); flex-shrink: 0; }
+  .sync-dot.ok { background: #4caf50; }
+  .sync-dot.saving { background: var(--gold); }
+  .sync-dot.error { background: #e24b4a; }
+  .sync-setup-btn { font-size: 11px; color: var(--gold-dim); background: none; border: 1px solid var(--border); padding: 3px 10px; border-radius: 4px; cursor: pointer; font-family: 'Crimson Pro', serif; transition: all 0.15s; }
+  .sync-setup-btn:hover { border-color: var(--border-strong); color: var(--gold); }
+
+  /* SETUP OVERLAY */
+  .setup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+  .setup-box { background: #1a1410; border: 1px solid var(--border-strong); border-radius: 14px; padding: 32px; width: 100%; max-width: 420px; }
+  .setup-box h2 { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 400; color: var(--gold); margin-bottom: 6px; }
+  .setup-box p { font-size: 13px; color: var(--mist); line-height: 1.6; margin-bottom: 20px; }
+  .setup-box ol { font-size: 13px; color: #b8a890; line-height: 1.8; padding-left: 18px; margin-bottom: 20px; }
+  .setup-box ol a { color: var(--gold); }
+  .setup-box label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mist); margin-bottom: 6px; }
+  .setup-box input { width: 100%; background: #110e0b; border: 1px solid var(--border); border-radius: 6px; padding: 9px 12px; color: #e8dcc8; font-family: 'Crimson Pro', serif; font-size: 14px; outline: none; margin-bottom: 14px; transition: border-color 0.2s; }
+  .setup-box input:focus { border-color: var(--border-strong); }
+  .setup-box .setup-actions { display: flex; gap: 10px; }
+  .setup-save-btn { flex: 1; background: var(--blood); border: none; color: #f5e8d8; font-family: 'Playfair Display', serif; font-size: 14px; padding: 10px; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+  .setup-save-btn:hover { background: #a52020; }
+  .setup-skip-btn { background: none; border: 1px solid var(--border); color: var(--mist); font-family: 'Crimson Pro', serif; font-size: 14px; padding: 10px 16px; border-radius: 6px; cursor: pointer; }
+  .setup-error { font-size: 12px; color: #e24b4a; margin-bottom: 12px; font-style: italic; display: none; }</style>
 </head>
 <body>
 
 <div class="app" id="app">
   <div class="header">
+    <div class="sync-bar">
+      <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-msg">Not connected — set up cloud sync</span></div>
+      <button class="sync-setup-btn" onclick="openSetup()">⚙ Sync settings</button>
+    </div>
     <div class="header-top">
       <div class="title-block">
         <h1>The Shelf</h1>
@@ -388,7 +417,119 @@
 </div>
 
 <script>
-  let books = JSON.parse(localStorage.getItem('shelf_books_v5') || '[]');
+  // ── CLOUD SYNC (JSONBin) ──
+  const JSONBIN_BASE = 'https://api.jsonbin.io/v3';
+  let _apiKey = localStorage.getItem('shelf_apikey') || '';
+  let _binId  = localStorage.getItem('shelf_binid')  || '';
+  let _saveTimer = null;
+
+  function setSyncStatus(state, msg) {
+    const dot = document.getElementById('sync-dot');
+    const txt = document.getElementById('sync-msg');
+    dot.className = 'sync-dot ' + state;
+    txt.textContent = msg;
+  }
+
+  async function loadFromCloud() {
+    if (!_apiKey || !_binId) {
+      setSyncStatus('', 'Not connected — set up cloud sync');
+      return false;
+    }
+    setSyncStatus('saving', 'Loading your shelf...');
+    try {
+      const res = await fetch(`${JSONBIN_BASE}/b/${_binId}/latest`, {
+        headers: { 'X-Master-Key': _apiKey }
+      });
+      if (!res.ok) throw new Error('Load failed');
+      const data = await res.json();
+      const record = data.record;
+      if (record.books)     books     = record.books;
+      if (record.narrators) narrators = record.narrators;
+      setSyncStatus('ok', 'Synced ✦');
+      return true;
+    } catch(e) {
+      setSyncStatus('error', 'Could not load — check your key');
+      return false;
+    }
+  }
+
+  async function saveToCloud() {
+    if (!_apiKey) return;
+    setSyncStatus('saving', 'Saving...');
+    try {
+      const payload = { books, narrators };
+      if (!_binId) {
+        // First save — create a new bin
+        const res = await fetch(`${JSONBIN_BASE}/b`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': _apiKey,
+            'X-Bin-Name': 'TheShelf',
+            'X-Bin-Private': 'false'
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Create failed');
+        const data = await res.json();
+        _binId = data.metadata.id;
+        localStorage.setItem('shelf_binid', _binId);
+        document.getElementById('setup-bin').value = _binId;
+      } else {
+        const res = await fetch(`${JSONBIN_BASE}/b/${_binId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Master-Key': _apiKey
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Save failed');
+      }
+      setSyncStatus('ok', 'Saved ✦ ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
+    } catch(e) {
+      setSyncStatus('error', 'Save failed — check your connection');
+      // fallback to localStorage
+      localStorage.setItem('shelf_books_v5', JSON.stringify(books));
+      localStorage.setItem('shelf_narrators', JSON.stringify(narrators));
+    }
+  }
+
+  function saveData() {
+    // Always keep a local backup
+    localStorage.setItem('shelf_books_v5', JSON.stringify(books));
+    localStorage.setItem('shelf_narrators', JSON.stringify(narrators));
+    // Debounce cloud saves
+    if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(saveToCloud, 800);
+  }
+
+  // ── SETUP OVERLAY ──
+  function openSetup() {
+    document.getElementById('setup-key').value = _apiKey;
+    document.getElementById('setup-bin').value = _binId;
+    document.getElementById('setup-error').style.display = 'none';
+    document.getElementById('setup-overlay').style.display = 'flex';
+  }
+  function closeSetup() { document.getElementById('setup-overlay').style.display = 'none'; }
+
+  async function saveSetup() {
+    const key = document.getElementById('setup-key').value.trim();
+    const bin = document.getElementById('setup-bin').value.trim();
+    const errEl = document.getElementById('setup-error');
+    if (!key) { errEl.textContent = 'Please paste your API key.'; errEl.style.display = 'block'; return; }
+    _apiKey = key; _binId = bin;
+    localStorage.setItem('shelf_apikey', key);
+    localStorage.setItem('shelf_binid', bin);
+    errEl.style.display = 'none';
+    closeSetup();
+    const ok = await loadFromCloud();
+    if (ok) { render(); } 
+    else if (!bin) { await saveToCloud(); render(); }
+  }
+
+  // ── DATA ──
+  let books     = JSON.parse(localStorage.getItem('shelf_books_v5') || '[]');
   let narrators = JSON.parse(localStorage.getItem('shelf_narrators') || '[]');
 
   if (!books.length) {
@@ -403,15 +544,6 @@
       { id: 2, name: 'Teddy Hamilton', photo: '', genres: ['dark romance','thriller'], books: 'Various', fav: '2nd', notes: 'Second favorite, incredibly versatile.' },
       { id: 3, name: 'Jacob Morgan', photo: '', genres: ['dark romance'], books: 'The Fallen Ones', fav: 'yes', notes: 'Also featured in The Fallen Ones.' },
     ];
-  }
-
-  let currentTab = 'tbr', currentView = 'grid', editRating = 0, editBookId = null, editNarratorId = null;
-
-  function saveData() {
-    try {
-      localStorage.setItem('shelf_books_v5', JSON.stringify(books));
-      localStorage.setItem('shelf_narrators', JSON.stringify(narrators));
-    } catch(e) {}
   }
 
   function setView(v) {
@@ -956,8 +1088,38 @@
 
   document.getElementById('book-modal').addEventListener('click', function(e){ if(e.target===this) closeBookModal(); });
   document.getElementById('narrator-modal').addEventListener('click', function(e){ if(e.target===this) closeNarratorModal(); });
+  document.getElementById('setup-overlay').addEventListener('click', function(e){ if(e.target===this) closeSetup(); });
 
-  render();
+  // Load from cloud on startup, fall back to local data
+  let currentTab = 'tbr', currentView = 'grid', editRating = 0, editBookId = null, editNarratorId = null;
+  if (_apiKey && _binId) {
+    loadFromCloud().then(ok => { render(); });
+  } else {
+    render();
+  }
 </script>
+<!-- Setup Overlay -->
+<div class="setup-overlay" id="setup-overlay" style="display:none">
+  <div class="setup-box">
+    <h2>Cloud Sync Setup</h2>
+    <p>Your data will be saved to JSONBin — a free cloud storage service. It takes about 2 minutes to set up and your books will be available on every device.</p>
+    <ol>
+      <li>Go to <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> and create a free account</li>
+      <li>Once logged in, click <strong>API Keys</strong> in the left sidebar</li>
+      <li>Click <strong>Create Access Key</strong> — give it any name</li>
+      <li>Copy the key and paste it below</li>
+    </ol>
+    <div class="setup-error" id="setup-error"></div>
+    <label>Your JSONBin API Key</label>
+    <input type="text" id="setup-key" placeholder="$2a$10$..." />
+    <label>Bin ID <span style="font-size:10px;font-style:italic;text-transform:none">(leave empty on first setup — we'll create one for you)</span></label>
+    <input type="text" id="setup-bin" placeholder="Auto-generated on first save..." />
+    <div class="setup-actions">
+      <button class="setup-skip-btn" onclick="closeSetup()">Cancel</button>
+      <button class="setup-save-btn" onclick="saveSetup()">Connect</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
