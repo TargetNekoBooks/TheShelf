@@ -1042,6 +1042,35 @@
       "verdict": "This is the first military romance I've ever read. I loved the writing and I also loved how the story is always not what you expect.\n\nI initially though Eren, the other twin, was going to be an enemy. I knew Jenkins was alive, but the way he was re-introduced to the story SHOCKED me.\n\nI wish I could forget this book and re-read it. I wish there was an audiobook.",
       "quote": "",
       "rereads": []
+    },
+    {
+      "id": 1774040836026,
+      "title": "Painter's Obsession: Volume I",
+      "author": "Luna K. Wicked",
+      "cover": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1770425432i/222590407.jpg",
+      "tags": [
+        "dark romance",
+        "mm",
+        "serial killer"
+      ],
+      "synopsis": "I wasn’t supposed to feel this way about him... the man dating my sister. But no matter how much I try to focus on other women, my mind keeps circling back to him. It started as unease, an itch I couldn’t scratch, a feeling that there was something off about him. Then it grew... an obsession I couldn’t control.\n\nSecrets aren’t meant to come into the light, and monsters should stay under the bed. I thought I was smart enough to keep my distance, but with him, logic vanishes. There’s no sense—only madness.\n\nThe deeper I dig, the darker it gets. He’s not just a man with secrets...he’s something much worse. And I’ve made one fatal mistake...stepping into his world.\n\nNow, it’s not just about uncovering the truth. It’s about surviving it.",
+      "shelf": "read",
+      "rating": 1,
+      "reason": "",
+      "dateAdded": "",
+      "format": "audiobook",
+      "narratorIds": [
+        1774009658544,
+        1774009687690
+      ],
+      "dateStarted": "2025-12-28",
+      "dateFinished": "",
+      "status": "dnf",
+      "initial": "",
+      "midway": "",
+      "verdict": "Hard pass for golden showers.",
+      "quote": "",
+      "rereads": []
     }
   ],
   "narrators": [
@@ -1068,7 +1097,7 @@
       "name": "Joe Arden",
       "photo": "",
       "genres": [],
-      "books": "Little Stranger, Unhinged, Echoes, Ravage, Exile, The Temporary Wife, Love Me to Death, Butcher & Blackbird",
+      "books": "Little Stranger, Unhinged, Echoes, Ravage, Exile, The Temporary Wife, Love Me to Death, Butcher & Blackbird, Painter's Obsession: Volume I",
       "fav": "1st",
       "notes": ""
     },
@@ -1077,7 +1106,7 @@
       "name": "Corvin King",
       "photo": "",
       "genres": [],
-      "books": "Unhinged, Echoes, Ravage, Exile",
+      "books": "Unhinged, Echoes, Ravage, Exile, Painter's Obsession: Volume I",
       "fav": "3rd",
       "notes": ""
     },
@@ -1421,6 +1450,11 @@
     {
       "id": 1774040168102,
       "name": "military",
+      "desc": ""
+    },
+    {
+      "id": 1774040775172,
+      "name": "mm",
       "desc": ""
     }
   ]
