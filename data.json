@@ -1071,6 +1071,41 @@
       "verdict": "Hard pass for golden showers.",
       "quote": "",
       "rereads": []
+    },
+    {
+      "id": 1774041134094,
+      "title": "Grim",
+      "author": "Joe Arden and D J Krimmer",
+      "cover": "https://m.media-amazon.com/images/I/51tevl6zYwL._SL500_.jpg",
+      "tags": [
+        "dark romance",
+        "forced proximity",
+        "ghosts",
+        "gods",
+        "romantasy"
+      ],
+      "synopsis": "RUE\n\nI died, briefly. Then I came back. Now I’m determined to make the most of every minute I have left.\n\nOnly problem is I’ve been saddled with supervision. Kane Deveraux is handsome, smug, and cold as a tombstone. So why does he make me feel something more powerful than death?\n\nKANE\n\nAs a reaper, I have helped crossover thousands of souls. And not one of them have touched mine…until Rue Chamberlain. She’s stubborn, reckless, and maddeningly radiant.\n\nAnd for this centuries-old spirit, she’s a living woman that is absolutely off-limits. If I follow the rules, I will lose her. If I break them, I might lose everything.\n\nGrim is a darkly romantic, wickedly funny tale of life, death, and a love that refuses to rest in peace.",
+      "shelf": "read",
+      "rating": 5,
+      "reason": "",
+      "dateAdded": "",
+      "format": "audiobook",
+      "narratorIds": [
+        1774009658544,
+        1774009708824,
+        1774040969647,
+        1774040985668,
+        1774040989506,
+        1774041015022
+      ],
+      "dateStarted": "2025-01-02",
+      "dateFinished": "2025-01-05",
+      "status": "finished",
+      "initial": "",
+      "midway": "",
+      "verdict": "I loved the story and each character development!\n\nThe way each character was written was again, consistent and well rounded. \n\nAlthough a lot of questions remained unanswered in this book, does that mean there will be a book 2?",
+      "quote": "",
+      "rereads": []
     }
   ],
   "narrators": [
@@ -1097,7 +1132,7 @@
       "name": "Joe Arden",
       "photo": "",
       "genres": [],
-      "books": "Little Stranger, Unhinged, Echoes, Ravage, Exile, The Temporary Wife, Love Me to Death, Butcher & Blackbird, Painter's Obsession: Volume I",
+      "books": "Little Stranger, Unhinged, Echoes, Ravage, Exile, The Temporary Wife, Love Me to Death, Butcher & Blackbird, Painter's Obsession: Volume I, Grim",
       "fav": "1st",
       "notes": ""
     },
@@ -1124,7 +1159,7 @@
       "name": "Sean Masters",
       "photo": "",
       "genres": [],
-      "books": "Little Liar",
+      "books": "Little Liar, Grim",
       "fav": "yes",
       "notes": ""
     },
@@ -1309,6 +1344,34 @@
       "genres": [],
       "fav": "",
       "books": "Love Me to Death"
+    },
+    {
+      "id": 1774040969647,
+      "name": "Maxine Mitchell",
+      "genres": [],
+      "fav": "",
+      "books": "Grim"
+    },
+    {
+      "id": 1774040985668,
+      "name": "Andi Eloise",
+      "genres": [],
+      "fav": "",
+      "books": "Grim"
+    },
+    {
+      "id": 1774040989506,
+      "name": "June DeBorahae",
+      "genres": [],
+      "fav": "",
+      "books": "Grim"
+    },
+    {
+      "id": 1774041015022,
+      "name": "James Cassidy",
+      "genres": [],
+      "fav": "",
+      "books": "Grim"
     }
   ],
   "tags": [
@@ -1455,6 +1518,11 @@
     {
       "id": 1774040775172,
       "name": "mm",
+      "desc": ""
+    },
+    {
+      "id": 1774040915407,
+      "name": "gods",
       "desc": ""
     }
   ]
