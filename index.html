@@ -489,9 +489,13 @@
 
 <script>
   // ── CLOUD SYNC (JSONBin) ──
-  const JSONBIN_BASE = 'https://api.jsonbin.io/v3';
-  let _apiKey = localStorage.getItem('shelf_apikey') || '';
-  let _binId  = localStorage.getItem('shelf_binid')  || '';
+  // ── GITHUB STORAGE ──
+  const GH_USER = 'TargetNekoBooks';
+  const GH_REPO = 'TheShelf';
+  const GH_FILE = 'data.json';
+  const GH_API  = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`;
+  let _ghToken = localStorage.getItem('shelf_ghtoken') || '';
+  let _ghSha   = localStorage.getItem('shelf_ghsha')   || '';
   let _saveTimer = null;
 
   function setSyncStatus(state, msg) {
@@ -502,68 +506,59 @@
   }
 
   async function loadFromCloud() {
-    if (!_apiKey || !_binId) {
-      setSyncStatus('', 'Not connected — set up cloud sync');
-      return false;
-    }
+    if (!_ghToken) { setSyncStatus('', 'Not connected — set up cloud sync'); return false; }
     setSyncStatus('saving', 'Loading your shelf...');
     try {
-      const res = await fetch(`${JSONBIN_BASE}/b/${_binId}/latest`, {
-        headers: { 'X-Master-Key': _apiKey }
+      const res = await fetch(GH_API + '?t=' + Date.now(), {
+        headers: { 'Authorization': 'token ' + _ghToken, 'Accept': 'application/vnd.github.v3+json' }
       });
+      if (res.status === 404) { setSyncStatus('ok', 'Ready — no data yet'); return false; }
       if (!res.ok) throw new Error('Load failed');
-      const data = await res.json();
-      const record = data.record;
+      const file = await res.json();
+      _ghSha = file.sha;
+      localStorage.setItem('shelf_ghsha', _ghSha);
+      const record = JSON.parse(atob(file.content.replace(/\n/g,'')));
       if (record.books)     books     = record.books;
       if (record.narrators) narrators = record.narrators;
       if (record.tags)      tags      = record.tags;
       setSyncStatus('ok', 'Synced ✦');
       return true;
     } catch(e) {
-      setSyncStatus('error', 'Could not load — check your key');
+      setSyncStatus('error', 'Could not load — check your token');
       return false;
     }
   }
 
   async function saveToCloud() {
-    if (!_apiKey) return;
+    if (!_ghToken) return;
     setSyncStatus('saving', 'Saving...');
     try {
       const payload = { books, narrators, tags };
-      if (!_binId) {
-        // First save — create a new bin
-        const res = await fetch(`${JSONBIN_BASE}/b`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': _apiKey,
-            'X-Bin-Name': 'TheShelf',
-            'X-Bin-Private': 'false'
-          },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error('Create failed');
-        const data = await res.json();
-        _binId = data.metadata.id;
-        localStorage.setItem('shelf_binid', _binId);
-        document.getElementById('setup-bin').value = _binId;
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+      const body = { message: 'Update shelf data', content, ..._ghSha ? { sha: _ghSha } : {} };
+      const res = await fetch(GH_API, {
+        method: 'PUT',
+        headers: { 'Authorization': 'token ' + _ghToken, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        // sha may be stale — re-fetch and retry once
+        const check = await fetch(GH_API + '?t=' + Date.now(), { headers: { 'Authorization': 'token ' + _ghToken } });
+        if (check.ok) {
+          const f = await check.json(); _ghSha = f.sha; localStorage.setItem('shelf_ghsha', _ghSha);
+          const retry = await fetch(GH_API, { method: 'PUT', headers: { 'Authorization': 'token ' + _ghToken, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' }, body: JSON.stringify({...body, sha: _ghSha}) });
+          if (!retry.ok) throw new Error('Save failed');
+          const rd = await retry.json(); _ghSha = rd.content.sha; localStorage.setItem('shelf_ghsha', _ghSha);
+        } else throw new Error('Save failed');
       } else {
-        const res = await fetch(`${JSONBIN_BASE}/b/${_binId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Master-Key': _apiKey
-          },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error('Save failed');
+        const d = await res.json(); _ghSha = d.content.sha; localStorage.setItem('shelf_ghsha', _ghSha);
       }
       setSyncStatus('ok', 'Saved ✦ ' + new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}));
     } catch(e) {
       setSyncStatus('error', 'Save failed — check your connection');
-      // fallback to localStorage
       localStorage.setItem('shelf_books_v5', JSON.stringify(books));
       localStorage.setItem('shelf_narrators', JSON.stringify(narrators));
+      localStorage.setItem('shelf_tags', JSON.stringify(tags));
     }
   }
 
@@ -577,36 +572,27 @@
 
   // ── SETUP OVERLAY ──
   function openSetup() {
-    document.getElementById('setup-key').value = _apiKey;
-    document.getElementById('setup-bin').value = _binId;
+    document.getElementById('setup-key').value = _ghToken;
     document.getElementById('setup-error').style.display = 'none';
     document.getElementById('setup-overlay').style.display = 'flex';
   }
   function closeSetup() { document.getElementById('setup-overlay').style.display = 'none'; }
 
   async function saveSetup() {
-    const key = document.getElementById('setup-key').value.trim();
-    const bin = document.getElementById('setup-bin').value.trim();
+    const token = document.getElementById('setup-key').value.trim();
     const errEl = document.getElementById('setup-error');
     const btn = document.querySelector('.setup-save-btn');
-    if (!key) { errEl.textContent = 'Please paste your API key.'; errEl.style.display = 'block'; return; }
-    _apiKey = key; _binId = bin;
-    localStorage.setItem('shelf_apikey', key);
-    if (bin) localStorage.setItem('shelf_binid', bin);
+    if (!token) { errEl.textContent = 'Please paste your GitHub token.'; errEl.style.display = 'block'; return; }
+    _ghToken = token; _ghSha = '';
+    localStorage.setItem('shelf_ghtoken', token);
+    localStorage.removeItem('shelf_ghsha');
     errEl.style.display = 'none';
     btn.textContent = 'Connecting...';
     btn.disabled = true;
-    if (bin) {
-      // existing bin — try to load
-      const ok = await loadFromCloud();
-      if (ok) { closeSetup(); render(); }
-      else { errEl.textContent = 'Could not connect. Check your key and Bin ID.'; errEl.style.display = 'block'; }
-    } else {
-      // no bin yet — do a first save to create one
-      closeSetup();
-      await saveToCloud();
-      render();
-    }
+    const ok = await loadFromCloud();
+    closeSetup();
+    if (ok) render();
+    else { await saveToCloud(); render(); }
     btn.textContent = 'Connect';
     btn.disabled = false;
   }
@@ -1498,7 +1484,7 @@
   document.getElementById('setup-overlay').addEventListener('click', function(e){ if(e.target===this) closeSetup(); });
 
   // Load from cloud on startup, fall back to local data
-  if (_apiKey && _binId) {
+  if (_ghToken) {
     loadFromCloud().then(() => render());
   } else {
     render();
@@ -1508,19 +1494,18 @@
 <!-- Setup Overlay -->
 <div class="setup-overlay" id="setup-overlay" style="display:none">
   <div class="setup-box">
-    <h2>Cloud Sync Setup</h2>
-    <p>Your data will be saved to JSONBin — a free cloud storage service. It takes about 2 minutes to set up and your books will be available on every device.</p>
+    <h2>GitHub Sync Setup</h2>
+    <p>Your data will be saved as a file in your GitHub repo — always fresh, always accessible, and I can read it too.</p>
     <ol>
-      <li>Go to <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> and create a free account</li>
-      <li>Once logged in, click <strong>API Keys</strong> in the left sidebar</li>
-      <li>Click <strong>Create Access Key</strong> — give it any name</li>
-      <li>Copy the key and paste it below</li>
+      <li>Go to <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a></li>
+      <li>Click <strong>Generate new token (classic)</strong></li>
+      <li>Give it a name like <strong>TheShelf</strong>, set expiration to <strong>No expiration</strong></li>
+      <li>Check the <strong>repo</strong> scope only</li>
+      <li>Click <strong>Generate token</strong> and copy it</li>
     </ol>
     <div class="setup-error" id="setup-error"></div>
-    <label>Your JSONBin API Key</label>
-    <input type="text" id="setup-key" placeholder="$2a$10$..." />
-    <label>Bin ID <span style="font-size:10px;font-style:italic;text-transform:none">(leave empty on first setup — we'll create one for you)</span></label>
-    <input type="text" id="setup-bin" placeholder="Auto-generated on first save..." />
+    <label>Your GitHub Personal Access Token</label>
+    <input type="text" id="setup-key" placeholder="ghp_..." />
     <div class="setup-actions">
       <button class="setup-skip-btn" onclick="closeSetup()">Cancel</button>
       <button class="setup-save-btn" onclick="saveSetup()">Connect</button>
