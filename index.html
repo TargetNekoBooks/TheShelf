@@ -180,9 +180,10 @@
   .dnf-badge { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 3px; background: rgba(139,26,26,0.3); color: #d4876e; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
   .finished-badge { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 3px; background: rgba(201,168,76,0.12); color: var(--gold-dim); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 4px; }
   .reread-section { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 14px; }
-  .reread-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 12px; user-select: none; }
-  .reread-toggle input[type=checkbox] { accent-color: var(--gold); width: 14px; height: 14px; cursor: pointer; }
-  .reread-toggle span { font-size: 13px; color: var(--mist); }
+  .reread-entry { background: #110e0b; border: 1px solid var(--border); border-radius: 7px; padding: 12px; margin-bottom: 10px; position: relative; }
+  .reread-entry-num { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gold-dim); margin-bottom: 8px; }
+  .reread-remove { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--mist); font-size: 12px; cursor: pointer; padding: 2px 5px; border-radius: 3px; }
+  .reread-remove:hover { color: #e24b4a; }
 
   /* TAGS TAB */
   .tags-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 14px; }
@@ -218,8 +219,8 @@
   .cal-book-pip:hover { opacity: 0.8; }
   .cal-book-pip.started { background: rgba(139,26,26,0.4); color: #e8a090; }
   .cal-book-pip.finished { background: rgba(201,168,76,0.18); color: var(--gold); }
+  .cal-book-pip.reread { background: rgba(100,68,150,0.25); color: #b89fd4; border: 1px solid rgba(100,68,150,0.4); }
   .cal-book-pip.reading { background: rgba(201,168,76,0.06); color: var(--mist); border: 1px solid var(--border); }
-  .cal-more { font-size: 9px; color: var(--mist); font-style: italic; padding-left: 2px; }
   .timeline { display: flex; flex-direction: column; }
   .timeline-year-group { margin-bottom: 8px; }
   .timeline-year { font-family: 'Playfair Display', serif; font-size: 17px; color: var(--gold); margin: 16px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
@@ -389,7 +390,11 @@
       <div class="form-group" id="narrator-group" style="display:none">
         <label>Narrator(s)</label>
         <div class="narrator-multiselect" id="narrator-multiselect"></div>
-        <div style="font-size:10px;color:var(--mist);margin-top:5px;font-style:italic">Selection updates the narrator's Books Narrated list automatically.</div>
+        <div style="display:flex;gap:6px;margin-top:7px">
+          <input type="text" id="inline-narrator-input" placeholder="New narrator name..." style="flex:1;background:#110e0b;border:1px solid var(--border);border-radius:5px;padding:5px 8px;color:#e8dcc8;font-family:'Crimson Pro',serif;font-size:12px;outline:none" onkeydown="if(event.key==='Enter'){event.preventDefault();createInlineNarrator()}" />
+          <button onclick="createInlineNarrator()" style="background:rgba(201,168,76,0.1);border:1px solid var(--border-strong);color:var(--gold);font-family:'Crimson Pro',serif;font-size:12px;padding:5px 10px;border-radius:5px;cursor:pointer;white-space:nowrap">+ Add</button>
+        </div>
+        <div style="font-size:10px;color:var(--mist);margin-top:5px;font-style:italic">New narrators are added to your Narrators tab automatically.</div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -431,20 +436,9 @@
       </div>
 
       <div class="reread-section">
-        <label class="reread-toggle">
-          <input type="checkbox" id="f-is-reread" onchange="toggleReread()" />
-          <span>This was a re-read</span>
-        </label>
-        <div id="reread-fields" style="display:none">
-          <div class="form-group">
-            <label>Why did you re-read it?</label>
-            <textarea id="f-reread-why" placeholder="What brought you back to it..."></textarea>
-          </div>
-          <div class="form-group">
-            <label>Additional Comments</label>
-            <textarea id="f-reread-comments" placeholder="Did it hold up? New things you noticed..."></textarea>
-          </div>
-        </div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.09em;color:var(--gold-dim);margin-bottom:12px">Re-reads</div>
+        <div id="reread-list"></div>
+        <button onclick="addRereadEntry()" style="background:rgba(201,168,76,0.08);border:1px solid var(--border);color:var(--gold-dim);font-family:'Crimson Pro',serif;font-size:12px;padding:6px 14px;border-radius:5px;cursor:pointer;width:100%;margin-top:6px;transition:all 0.15s" onmouseover="this.style.borderColor='rgba(201,168,76,0.5)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='rgba(201,168,76,0.25)';this.style.color='var(--gold-dim)'">+ Add Re-read Entry</button>
       </div>
     </div>
     <div class="modal-actions">
@@ -474,16 +468,18 @@
     <h2 id="narrator-modal-title">Add Narrator</h2>
     <p class="modal-sub">Track the voices that live in your head.</p>
     <div class="form-group"><label>Name</label><input type="text" id="n-name" placeholder="Narrator name..." /></div>
-    <div class="form-group"><label>Photo URL (optional)</label><input type="text" id="n-photo" placeholder="https://..." /></div>
     <div class="form-group"><label>Genres they narrate</label><input type="text" id="n-genres" placeholder="dark romance, thriller, fantasy..." /></div>
-    <div class="form-group"><label>Books narrated (count or titles)</label><input type="text" id="n-books" placeholder="e.g. 12 books, or The Fallen Ones, ..." /></div>
     <div class="form-group"><label>Favorite?</label>
       <select id="n-fav">
         <option value="">Not marked</option><option value="1st">1st Favorite</option>
         <option value="2nd">2nd Favorite</option><option value="3rd">3rd Favorite</option><option value="yes">Favorite</option>
       </select>
     </div>
-    <div class="form-group"><label>Notes</label><textarea id="n-notes" placeholder="Voice style, memorable performances, why you love them..."></textarea></div>
+    <div class="form-group" id="n-books-display-group" style="display:none">
+      <label>Books Narrated</label>
+      <div id="n-books-display" style="display:flex;flex-direction:column;gap:5px"></div>
+      <div style="font-size:10px;color:var(--mist);margin-top:5px;font-style:italic">Auto-populated from Has Been Read audiobooks.</div>
+    </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeNarratorModal()">Cancel</button>
       <button class="btn-save" onclick="saveNarrator()">Save Narrator</button>
@@ -623,7 +619,7 @@
   if (!books.length) {
     books = [
       { id: 1, title: 'The Fallen Ones', author: 'Various', cover: '', tags: ['dark romance','audiobook'], shelf: 'tbr', rating: 5, reason: 'Joe Arden, Jacob Morgan, Corvin King narrating — need this immediately', synopsis: '', dateAdded: new Date().toISOString().split('T')[0], notes: '' },
-      { id: 2, title: 'Filthy Rich Vampire', author: 'Geneva Lee', cover: '', tags: ['paranormal romance','series'], shelf: 'read', rating: 4, reason: '', synopsis: '', dateAdded: '', notes: '', format: 'physical', narratorIds: [], dateStarted: '', dateFinished: '', status: 'finished', initial: '', midway: '', verdict: 'Finally finished the series!', quote: '', isReread: false, rereadWhy: '', rereadComments: '' },
+      { id: 2, title: 'Filthy Rich Vampire', author: 'Geneva Lee', cover: '', tags: ['paranormal romance','series'], shelf: 'read', rating: 4, reason: '', synopsis: '', dateAdded: '', notes: '', format: 'physical', narratorIds: [], dateStarted: '', dateFinished: '', status: 'finished', initial: '', midway: '', verdict: 'Finally finished the series!', quote: '', rereads: [] },
     ];
   }
   if (!narrators.length) {
@@ -772,10 +768,14 @@
 
   function narratorCard(n, listenCount) {
     listenCount = listenCount || 0;
-    const avatarInner = n.photo ? `<img src="${n.photo}" onerror="this.outerHTML='${initials(n.name)}'">` : initials(n.name);
+    const avatarInner = initials(n.name);
     const genresHtml = (n.genres||[]).map(g=>`<span class="tag">${g}</span>`).join('');
     const favHtml = n.fav ? `<div><span class="fav-badge">${n.fav==='yes'?'favorite':n.fav+' favorite'}</span></div>` : '';
     const listenHtml = listenCount > 0 ? `<div style="font-size:10px;color:var(--gold-dim);margin-top:6px;letter-spacing:0.04em">🎧 ${listenCount} audiobook${listenCount!==1?'s':''} listened</div>` : '';
+    const linkedBooks = books.filter(b => b.shelf==='read' && b.format==='audiobook' && (b.narratorIds||[]).includes(n.id));
+    const booksHtml = linkedBooks.length
+      ? `<div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">${linkedBooks.map(b=>`<div class="tag-card-book" onclick="event.stopPropagation();openEditBook(${b.id})" style="cursor:pointer">${b.title}</div>`).join('')}</div>`
+      : '';
     return `<div class="narrator-card" onclick="openEditNarrator(${n.id})">
       <button class="narrator-delete" onclick="event.stopPropagation();deleteNarrator(${n.id})">✕</button>
       <div class="narrator-header">
@@ -783,9 +783,8 @@
         <div><div class="narrator-name">${n.name}</div>${favHtml}</div>
       </div>
       ${genresHtml ? `<div class="narrator-genres">${genresHtml}</div>` : ''}
-      ${n.notes ? `<div class="narrator-notes">${n.notes}</div>` : ''}
       ${listenHtml}
-      ${n.books ? `<div style="font-size:11px;color:var(--mist);margin-top:5px;font-style:italic">${n.books}</div>` : ''}
+      ${booksHtml}
     </div>`;
   }
 
@@ -808,7 +807,7 @@
     } else {
       const ratingHtml = b.rating ? `<div class="rating" style="margin-top:6px">${stars(b.rating)}</div>` : '';
       const statusHtml = b.status === 'dnf' ? `<span class="dnf-badge">DNF'd</span>` : (b.status === 'finished' ? `<span class="finished-badge">finished</span>` : '');
-      const rereadHtml = b.isReread ? `<span class="finished-badge" style="background:rgba(201,168,76,0.08);margin-left:4px">re-read</span>` : '';
+      const rereadHtml = (b.rereads&&b.rereads.length) ? `<span class="finished-badge" style="background:rgba(201,168,76,0.08);margin-left:4px">re-read ×${b.rereads.length}</span>` : '';
       const formatHtml = b.format ? `<div class="read-meta">${b.format==='audiobook'?'🎧':b.format==='ebook'?'📱':'📖'} ${b.format}</div>` : '';
       const datesHtml = b.dateFinished ? `<div class="read-meta">finished ${formatDate(b.dateFinished)}</div>` : '';
       const verdictHtml = b.verdict ? `<div class="notes-preview">${b.verdict}</div>` : '';
@@ -842,7 +841,7 @@
     } else {
       const ratingHtml = b.rating ? `<div class="rating" style="margin-top:4px">${stars(b.rating)}</div>` : '';
       const statusHtml = b.status === 'dnf' ? `<span class="dnf-badge">DNF'd</span>` : (b.status === 'finished' ? `<span class="finished-badge">finished</span>` : '');
-      const rereadHtml = b.isReread ? `<span class="finished-badge" style="background:rgba(201,168,76,0.08);margin-left:4px">re-read</span>` : '';
+      const rereadHtml = (b.rereads&&b.rereads.length) ? `<span class="finished-badge" style="background:rgba(201,168,76,0.08);margin-left:4px">re-read ×${b.rereads.length}</span>` : '';
       const formatHtml = b.format ? `<div class="read-meta">${b.format==='audiobook'?'🎧':b.format==='ebook'?'📱':'📖'} ${b.format}</div>` : '';
       const datesHtml = b.dateFinished ? `<div class="read-meta">finished ${formatDate(b.dateFinished)}</div>` : '';
       const verdictHtml = b.verdict ? `<div class="notes-preview">${b.verdict}</div>` : '';
@@ -887,9 +886,38 @@
     document.getElementById('narrator-group').style.display = fmt === 'audiobook' ? '' : 'none';
   }
 
-  function toggleReread() {
-    const on = document.getElementById('f-is-reread').checked;
-    document.getElementById('reread-fields').style.display = on ? '' : 'none';
+  let _rereadEntries = [];
+
+  function renderRereadList() {
+    const el = document.getElementById('reread-list');
+    if (!_rereadEntries.length) { el.innerHTML = ''; return; }
+    el.innerHTML = _rereadEntries.map((r, i) => `
+      <div class="reread-entry">
+        <div class="reread-entry-num">Re-read #${i+1}</div>
+        <button class="reread-remove" onclick="removeRereadEntry(${i})">✕</button>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Date</label>
+          <input type="date" value="${r.date||''}" onchange="_rereadEntries[${i}].date=this.value" style="background:#1a1410;border:1px solid var(--border);border-radius:5px;padding:6px 8px;color:#e8dcc8;font-family:'Crimson Pro',serif;font-size:13px;outline:none;width:100%" />
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Why did you re-read it?</label>
+          <textarea onchange="_rereadEntries[${i}].why=this.value" style="background:#1a1410;border:1px solid var(--border);border-radius:5px;padding:7px 8px;color:#e8dcc8;font-family:'Crimson Pro',serif;font-size:13px;outline:none;width:100%;resize:vertical;min-height:55px" placeholder="What brought you back to it...">${r.why||''}</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Comments</label>
+          <textarea onchange="_rereadEntries[${i}].comments=this.value" style="background:#1a1410;border:1px solid var(--border);border-radius:5px;padding:7px 8px;color:#e8dcc8;font-family:'Crimson Pro',serif;font-size:13px;outline:none;width:100%;resize:vertical;min-height:55px" placeholder="Did it hold up? New things you noticed...">${r.comments||''}</textarea>
+        </div>
+      </div>`).join('');
+  }
+
+  function addRereadEntry() {
+    _rereadEntries.push({ date: new Date().toISOString().split('T')[0], why: '', comments: '' });
+    renderRereadList();
+  }
+
+  function removeRereadEntry(i) {
+    _rereadEntries.splice(i, 1);
+    renderRereadList();
   }
 
   function buildNarratorMultiselect(selectedIds) {
@@ -1006,7 +1034,6 @@
     document.getElementById('f-title').value = '';
     document.getElementById('f-author').value = '';
     document.getElementById('f-cover').value = '';
-    document.getElementById('f-tags').value = '';
     document.getElementById('f-synopsis').value = '';
     document.getElementById('f-shelf').value = (currentTab === 'narrators' || currentTab === 'tags') ? 'tbr' : currentTab;
     document.getElementById('f-reason').value = '';
@@ -1019,10 +1046,9 @@
     document.getElementById('f-midway').value = '';
     document.getElementById('f-verdict').value = '';
     document.getElementById('f-quote').value = '';
-    document.getElementById('f-is-reread').checked = false;
-    document.getElementById('reread-fields').style.display = 'none';
-    document.getElementById('f-reread-why').value = '';
-    document.getElementById('f-reread-comments').value = '';
+    document.getElementById('f-is-reread') && (document.getElementById('f-is-reread').checked = false);
+    _rereadEntries = [];
+    renderRereadList();
     ['ebook','audiobook','physical'].forEach(f => document.getElementById('fmt-'+f).classList.remove('selected'));
     document.getElementById('narrator-group').style.display = 'none';
     document.getElementById('modal-title').textContent = 'Add to Shelf';
@@ -1054,10 +1080,9 @@
     document.getElementById('f-midway').value = b.midway || '';
     document.getElementById('f-verdict').value = b.verdict || '';
     document.getElementById('f-quote').value = b.quote || '';
-    document.getElementById('f-is-reread').checked = !!b.isReread;
-    document.getElementById('reread-fields').style.display = b.isReread ? '' : 'none';
-    document.getElementById('f-reread-why').value = b.rereadWhy || '';
-    document.getElementById('f-reread-comments').value = b.rereadComments || '';
+    document.getElementById('f-is-reread') && (document.getElementById('f-is-reread').checked = false);
+    _rereadEntries = (b.rereads || []).map(r => ({...r}));
+    renderRereadList();
     // format pills
     ['ebook','audiobook','physical'].forEach(f => document.getElementById('fmt-'+f).classList.toggle('selected', f === b.format));
     document.getElementById('narrator-group').style.display = b.format === 'audiobook' ? '' : 'none';
@@ -1103,9 +1128,7 @@
       midway: shelf === 'read' ? document.getElementById('f-midway').value.trim() : '',
       verdict: shelf === 'read' ? document.getElementById('f-verdict').value.trim() : '',
       quote: shelf === 'read' ? document.getElementById('f-quote').value.trim() : '',
-      isReread: shelf === 'read' ? document.getElementById('f-is-reread').checked : false,
-      rereadWhy: shelf === 'read' ? document.getElementById('f-reread-why').value.trim() : '',
-      rereadComments: shelf === 'read' ? document.getElementById('f-reread-comments').value.trim() : '',
+      rereads: shelf === 'read' ? _rereadEntries.filter(r => r.date || r.why || r.comments) : [],
     };
 
     if (editBookId) {
@@ -1141,8 +1164,10 @@
   /* ── NARRATOR MODAL ── */
   function openAddNarrator() {
     editNarratorId = null;
-    ['n-name','n-photo','n-genres','n-books','n-notes'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('n-name').value = '';
+    document.getElementById('n-genres').value = '';
     document.getElementById('n-fav').value = '';
+    document.getElementById('n-books-display-group').style.display = 'none';
     document.getElementById('narrator-modal-title').textContent = 'Add Narrator';
     document.getElementById('narrator-modal').style.display = 'flex';
   }
@@ -1151,11 +1176,18 @@
     const n = narrators.find(x=>x.id===id); if (!n) return;
     editNarratorId = id;
     document.getElementById('n-name').value = n.name;
-    document.getElementById('n-photo').value = n.photo||'';
     document.getElementById('n-genres').value = (n.genres||[]).join(', ');
-    document.getElementById('n-books').value = n.books||'';
     document.getElementById('n-fav').value = n.fav||'';
-    document.getElementById('n-notes').value = n.notes||'';
+    // show linked books from Has Been Read audiobooks
+    const linked = books.filter(b => b.shelf==='read' && b.format==='audiobook' && (b.narratorIds||[]).includes(n.id));
+    const grp = document.getElementById('n-books-display-group');
+    const disp = document.getElementById('n-books-display');
+    if (linked.length) {
+      disp.innerHTML = linked.map(b => `<div onclick="closeNarratorModal();openEditBook(${b.id})" style="font-size:13px;color:#e8dcc8;padding:5px 8px;background:rgba(201,168,76,0.06);border:1px solid var(--border);border-radius:4px;cursor:pointer;transition:border-color 0.15s" onmouseover="this.style.borderColor='rgba(201,168,76,0.5)'" onmouseout="this.style.borderColor='rgba(201,168,76,0.25)'">${b.title}</div>`).join('');
+      grp.style.display = '';
+    } else {
+      grp.style.display = 'none';
+    }
     document.getElementById('narrator-modal-title').textContent = 'Edit Narrator';
     document.getElementById('narrator-modal').style.display = 'flex';
   }
@@ -1167,11 +1199,8 @@
     if (!name) { document.getElementById('n-name').focus(); return; }
     const data = {
       name,
-      photo: document.getElementById('n-photo').value.trim(),
       genres: document.getElementById('n-genres').value.split(',').map(t=>t.trim()).filter(Boolean),
-      books: document.getElementById('n-books').value.trim(),
       fav: document.getElementById('n-fav').value,
-      notes: document.getElementById('n-notes').value.trim()
     };
     if (editNarratorId) {
       const idx = narrators.findIndex(n=>n.id===editNarratorId);
@@ -1281,6 +1310,22 @@
       .map(cb => cb.value);
   }
 
+  function createInlineNarrator() {
+    const input = document.getElementById('inline-narrator-input');
+    const name = input.value.trim();
+    if (!name) return;
+    let narrator = narrators.find(n => n.name.toLowerCase() === name.toLowerCase());
+    if (!narrator) {
+      narrator = { id: Date.now(), name, genres: [], fav: '' };
+      narrators.push(narrator);
+    }
+    const currentIds = getSelectedNarratorIds();
+    if (!currentIds.includes(narrator.id)) currentIds.push(narrator.id);
+    buildNarratorMultiselect(currentIds);
+    input.value = '';
+    input.focus();
+  }
+
   function createInlineTag() {
     const input = document.getElementById('inline-tag-input');
     const name = input.value.trim().toLowerCase();
@@ -1349,6 +1394,13 @@
         if (!booksByDate[k]) booksByDate[k] = [];
         booksByDate[k].push({ b, type: 'finished' });
       }
+      // reread dates
+      (b.rereads||[]).forEach(r => {
+        if (r.date) {
+          if (!booksByDate[r.date]) booksByDate[r.date] = [];
+          booksByDate[r.date].push({ b, type: 'reread' });
+        }
+      });
       if (start && end && end > start) {
         let cur = new Date(start); cur.setDate(cur.getDate() + 1);
         while (cur < end) {
@@ -1385,6 +1437,7 @@
       <div class="cal-book-pip started" style="padding:2px 8px">▶ started</div>
       <div class="cal-book-pip reading" style="padding:2px 8px">· reading</div>
       <div class="cal-book-pip finished" style="padding:2px 8px">■ finished</div>
+      <div class="cal-book-pip reread" style="padding:2px 8px">↺ re-read</div>
     </div>`;
     return html;
   }
@@ -1416,6 +1469,7 @@
           const days = Math.round((new Date(b.dateFinished) - new Date(b.dateStarted)) / 86400000);
           duration = `${days} day${days!==1?'s':''}`;
         }
+        const rereadHtml = (b.rereads&&b.rereads.length) ? b.rereads.map((r,i) => `<div style="font-size:10px;color:#b89fd4;margin-top:3px">↺ re-read #${i+1}${r.date?' · '+formatDate(r.date):''}</div>`).join('') : '';
         html += `<div class="timeline-item" onclick="openEditBook(${b.id})" style="cursor:pointer">
           <div class="timeline-dates">
             ${b.dateStarted ? `<div class="timeline-date start">▶ ${formatDate(b.dateStarted)}</div>` : ''}
@@ -1427,6 +1481,7 @@
             <div class="timeline-title">${b.title}</div>
             <div class="timeline-author">${b.author}</div>
             <div class="timeline-badges">${statusBadge}${ratingHtml}${b.format?`<span class="finished-badge">${b.format==='audiobook'?'🎧':b.format==='ebook'?'📱':'📖'} ${b.format}</span>`:''}</div>
+            ${rereadHtml}
             ${tagsHtml ? `<div class="book-tags" style="margin-top:5px">${tagsHtml}</div>` : ''}
           </div>
         </div>`;
